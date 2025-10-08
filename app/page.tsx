@@ -1,103 +1,307 @@
-import Image from "next/image";
+// app/page.tsx
+'use client';
+
+import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchPosts, fetchComments } from '@/lib/api';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const queryClient = useQueryClient();
+  const [prefetchState, setPrefetchState] = useState<{
+    loading: boolean;
+    time: number;
+    done: boolean;
+  }>({ loading: false, time: 0, done: false });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const [loadingPages, setLoadingPages] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (prefetchState.loading) {
+      const start = Date.now();
+      interval = setInterval(() => {
+        setPrefetchState((prev) => ({ ...prev, time: Date.now() - start }));
+      }, 10);
+    } else {
+      setPrefetchState((prev) => ({ ...prev, time: 0 }));
+    }
+    return () => clearInterval(interval);
+  }, [prefetchState.loading]);
+
+  useEffect(() => {
+    const timers: Record<string, NodeJS.Timeout> = {};
+
+    Object.keys(loadingPages).forEach((page) => {
+      const start = Date.now();
+      timers[page] = setInterval(() => {
+        setLoadingPages((prev) => ({
+          ...prev,
+          [page]: Date.now() - start,
+        }));
+      }, 10);
+    });
+
+    return () => {
+      Object.values(timers).forEach((timer) => clearInterval(timer));
+    };
+  }, [Object.keys(loadingPages).join(',')]);
+
+  const handlePrefetch = async () => {
+    if (prefetchState.loading || prefetchState.done) return;
+
+    setPrefetchState({ loading: true, time: 0, done: false });
+
+    await Promise.all([
+      queryClient.prefetchQuery({ queryKey: ['posts'], queryFn: fetchPosts }),
+      queryClient.prefetchQuery({
+        queryKey: ['comments'],
+        queryFn: fetchComments,
+      }),
+    ]);
+
+    setPrefetchState({ loading: false, time: 0, done: true });
+  };
+
+  const handleLinkClick = (page: string) => {
+    setLoadingPages((prev) => ({ ...prev, [page]: 0 }));
+  };
+
+  return (
+    <div className="p-8 max-w-2xl mx-auto font-sans">
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+
+      <h1 className="text-3xl font-bold mb-2 text-[#191F28]">
+        Next.js 렌더링 비교
+      </h1>
+      <p className="text-[#4E5968] mb-8">각 방식을 직접 체험해보세요</p>
+
+      <div className="flex flex-col gap-3">
+        {/* Pages Router */}
+        <Link
+          href="/pages-router-ssr"
+          onClick={() => handleLinkClick('pages')}
+          className="block p-6 bg-white border border-[#E5E8EB] rounded-xl no-underline text-inherit transition-all relative overflow-hidden"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          {loadingPages['pages'] !== undefined && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div
+                className="h-full bg-[#FF6B6B] transition-all duration-100 linear"
+                style={{
+                  width: `${Math.min(
+                    (loadingPages['pages'] / 6000) * 100,
+                    100,
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-lg font-semibold mb-1 text-[#191F28]">
+                Pages Router
+              </div>
+              <div className="text-sm text-[#8B95A1]">순차 실행</div>
+            </div>
+            {loadingPages['pages'] !== undefined ? (
+              <div
+                className="text-2xl font-bold text-[#FF6B6B] font-mono"
+                style={{ animation: 'pulse 1s infinite' }}
+              >
+                {(loadingPages['pages'] / 1000).toFixed(1)}s
+              </div>
+            ) : (
+              <div className="text-xl text-[#FF6B6B]">~6s</div>
+            )}
+          </div>
+        </Link>
+
+        {/* App Router Basic */}
+        <Link
+          href="/app-router-basic"
+          onClick={() => handleLinkClick('basic')}
+          className="block p-6 bg-white border border-[#E5E8EB] rounded-xl no-underline text-inherit transition-all relative overflow-hidden"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          {loadingPages['basic'] !== undefined && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div
+                className="h-full bg-[#FFA726] transition-all duration-100 linear"
+                style={{
+                  width: `${Math.min(
+                    (loadingPages['basic'] / 6000) * 100,
+                    100,
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-lg font-semibold mb-1 text-[#191F28]">
+                App Router Basic
+              </div>
+              <div className="text-sm text-[#8B95A1]">순차 실행</div>
+            </div>
+            {loadingPages['basic'] !== undefined ? (
+              <div
+                className="text-2xl font-bold text-[#FFA726] font-mono"
+                style={{ animation: 'pulse 1s infinite' }}
+              >
+                {(loadingPages['basic'] / 1000).toFixed(1)}s
+              </div>
+            ) : (
+              <div className="text-xl text-[#FFA726]">~6s</div>
+            )}
+          </div>
+        </Link>
+
+        {/* App Router Suspense */}
+        <Link
+          href="/app-router-suspense"
+          onClick={() => handleLinkClick('suspense')}
+          className="block p-6 bg-white border border-[#E5E8EB] rounded-xl no-underline text-inherit transition-all relative overflow-hidden"
         >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {loadingPages['suspense'] !== undefined && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div
+                className="h-full bg-[#4CAF50] transition-all duration-100 linear"
+                style={{
+                  width: `${Math.min(
+                    (loadingPages['suspense'] / 3000) * 100,
+                    100,
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-lg font-semibold mb-1 text-[#191F28]">
+                App Router + Suspense
+              </div>
+              <div className="text-sm text-[#8B95A1]">병렬 실행 • 스트리밍</div>
+            </div>
+            {loadingPages['suspense'] !== undefined ? (
+              <div
+                className="text-2xl font-bold text-[#4CAF50] font-mono"
+                style={{ animation: 'pulse 1s infinite' }}
+              >
+                {(loadingPages['suspense'] / 1000).toFixed(1)}s
+              </div>
+            ) : (
+              <div className="text-xl text-[#4CAF50]">~3s</div>
+            )}
+          </div>
+        </Link>
+
+        {/* TanStack Query */}
+        <Link
+          href="/app-router-tanstack"
+          onClick={() => handleLinkClick('tanstack')}
+          onMouseEnter={handlePrefetch}
+          className={`block p-6 border rounded-xl no-underline text-inherit transition-all relative overflow-hidden ${
+            prefetchState.done
+              ? 'bg-[#F0F4FF] border-[#3182F6]'
+              : 'bg-white border-[#E5E8EB]'
+          }`}
+        >
+          {prefetchState.loading && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div
+                className="h-full bg-[#3182F6] transition-all duration-100 linear"
+                style={{
+                  width: `${Math.min((prefetchState.time / 3000) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          )}
+
+          {loadingPages['tanstack'] !== undefined && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div className="h-full w-full bg-[#3182F6]" />
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-lg font-semibold mb-1 text-[#191F28]">
+                TanStack Query
+              </div>
+              <div className="text-sm text-[#8B95A1]">
+                {prefetchState.loading
+                  ? 'Prefetching...'
+                  : prefetchState.done
+                  ? '캐시 완료 • 즉시 표시'
+                  : '마우스 올려서 Prefetch'}
+              </div>
+            </div>
+            {prefetchState.loading ? (
+              <div
+                className="text-2xl font-bold text-[#3182F6] font-mono"
+                style={{ animation: 'pulse 1s infinite' }}
+              >
+                {(prefetchState.time / 1000).toFixed(1)}s
+              </div>
+            ) : loadingPages['tanstack'] !== undefined ? (
+              <div className="text-2xl font-bold text-[#3182F6] font-mono">
+                0.0s
+              </div>
+            ) : prefetchState.done ? (
+              <div className="text-xl text-[#3182F6]">✓ 0s</div>
+            ) : (
+              <div className="text-xl text-[#3182F6]">~3s</div>
+            )}
+          </div>
+        </Link>
+
+        {/* Client Only */}
+        <Link
+          href="/client-only-fetch"
+          onClick={() => handleLinkClick('client')}
+          className="block p-6 bg-white border border-[#E5E8EB] rounded-xl no-underline text-inherit transition-all relative overflow-hidden"
+        >
+          {loadingPages['client'] !== undefined && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#E5E8EB]">
+              <div
+                className="h-full bg-[#9E9E9E] transition-all duration-100 linear"
+                style={{
+                  width: `${Math.min(
+                    (loadingPages['client'] / 3000) * 100,
+                    100,
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-lg font-semibold mb-1 text-[#191F28]">
+                Client-Only Fetch
+              </div>
+              <div className="text-sm text-[#8B95A1]">비교용</div>
+            </div>
+            {loadingPages['client'] !== undefined ? (
+              <div
+                className="text-2xl font-bold text-[#9E9E9E] font-mono"
+                style={{ animation: 'pulse 1s infinite' }}
+              >
+                {(loadingPages['client'] / 1000).toFixed(1)}s
+              </div>
+            ) : (
+              <div className="text-xl text-[#9E9E9E]">~3s</div>
+            )}
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }
