@@ -130,16 +130,16 @@ export default function AppRouterSuspense() {
 
       {/* 데이터 섹션들 */}
       <div className="flex flex-col gap-4">
-        <Suspense fallback={<LoadingSkeleton label="User" />}>
-          <UserSection />
-        </Suspense>
-
         <Suspense fallback={<LoadingSkeleton label="Comments" />}>
           <CommentsSection />
         </Suspense>
 
         <Suspense fallback={<LoadingSkeleton label="Posts" />}>
           <PostsSection />
+        </Suspense>
+
+        <Suspense fallback={<LoadingSkeleton label="User" />}>
+          <UserSection />
         </Suspense>
       </div>
     </div>
